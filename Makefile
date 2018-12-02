@@ -26,6 +26,16 @@ BUILDDIR = $(abspath $(CURDIR)/build)
 # path location for Teensy Loader, teensy_post_compile and teensy_reboot
 TOOLSPATH = $(CURDIR)/tools
 
+# path to location of Teensy Loader CLI submodule dir
+LOADER_CLI_DIR = $(TOOLSPATH)/teensy_loader_cli
+
+# Flag to show whether teensy cli loader executable exists or not
+ifneq ("$(wildcard $(LOADER_CLI_DIR)/teensy_loader_cli)", "")
+	LOADER_CLI_EXISTS = 1
+else
+	LOADER_CLI_EXISTS = 0
+endif
+
 ifeq ($(OS),Windows_NT)
     $(error What is Win Dose?)
 else
@@ -125,13 +135,15 @@ build: $(TARGET).elf
 
 hex: $(TARGET).hex
 
-post_compile: $(TARGET).hex
-	@$(abspath $(TOOLSPATH))/teensy_post_compile -file="$(basename $<)" -path=$(CURDIR) -tools="$(abspath $(TOOLSPATH))"
+teensy_loader_cli:
+ifeq ("$(LOADER_CLI_EXISTS)", "0")
+	$(info ********************  BUILDING TEENSY LOADER CLI  ********************)
+	$(MAKE) -C $(LOADER_CLI_DIR)
+endif
 
-reboot:
-	@-$(abspath $(TOOLSPATH))/teensy_reboot
-
-upload: post_compile reboot
+upload: $(TARGET).hex teensy_loader_cli
+	$(info ********************  UPLOADING HEX TO TEENSY  ********************)
+	@$(abspath $(LOADER_CLI_DIR))/teensy_loader_cli --mcu=TEENSY$(TEENSY) -vw $(TARGET).hex
 
 $(BUILDDIR)/%.o: %.c
 	@echo -e "[CC]\t$<"
